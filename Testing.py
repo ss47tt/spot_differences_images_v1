@@ -22,7 +22,7 @@ class ImageDataset(Dataset):
         img = Image.open(img_path).convert("RGB")  # Open image and ensure it's in RGB mode
         if self.transform:
             img = self.transform(img)
-        return img
+        return img, os.path.basename(img_path)  # Return the image and its filename
 
 # VAE Model
 class VAE(nn.Module):
@@ -103,11 +103,11 @@ transform = transforms.Compose([
     transforms.ToTensor(),
 ])
 
-# Inference function
+# Inference function with filename support
 def infer(model, dataloader):
     model.eval()
     with torch.no_grad():
-        for idx, img in enumerate(dataloader):
+        for idx, (img, filename) in enumerate(dataloader):
             img = img.to(device)
             recon, mu, logvar = model(img)
             
@@ -122,11 +122,11 @@ def infer(model, dataloader):
             threshold = recon_error.mean() + 2 * recon_error.std()  # Set a threshold for anomaly
             anomaly_mask = recon_error > threshold  # Create a mask for anomalies
 
-            # Visualize the result
-            visualize_anomalies(img[0], recon[0], anomaly_mask[0], idx)
+            # Visualize the result and save with the filename
+            visualize_anomalies(img[0], recon[0], anomaly_mask[0], filename[0])  # Pass filename[0]
 
 # Visualization function to show anomalies
-def visualize_anomalies(original_img, reconstructed_img, anomaly_mask, idx):
+def visualize_anomalies(original_img, reconstructed_img, anomaly_mask, filename):
     # Convert tensors to numpy arrays for visualization
     original_img = original_img.cpu().numpy().transpose(1, 2, 0)
     reconstructed_img = reconstructed_img.cpu().numpy().transpose(1, 2, 0)
@@ -140,9 +140,9 @@ def visualize_anomalies(original_img, reconstructed_img, anomaly_mask, idx):
     alpha = 0.6  # Adjust transparency
     anomaly_overlay = (1 - alpha) * original_img + alpha * anomaly_overlay
 
-    # Save the masked image
+    # Save the masked image with the original filename
     masked_images_path = "masked_v2"
-    masked_image_path = os.path.join(masked_images_path, f"masked_image_{idx}.png")
+    masked_image_path = os.path.join(masked_images_path, filename)  # Use the original filename
     # Check if the directory exists, if not, create it
     if not os.path.exists(masked_images_path):
         os.makedirs(masked_images_path)
